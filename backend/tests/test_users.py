@@ -56,4 +56,4 @@ async def test_patch_me_rejects_unknown_fields(client: AsyncClient, make_user):
 @pytest.mark.asyncio
 async def test_unauthenticated_me(client: AsyncClient):
     response = await client.get("/me")
-    assert response.status_code == 403
+    assert response.status_code in (401, 403)

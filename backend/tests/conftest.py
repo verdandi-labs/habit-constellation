@@ -13,6 +13,7 @@ from sqlalchemy import text
 from app.core.database import Base, get_db
 from app.core.config import get_settings
 from app.core.auth import create_access_token, hash_token
+from app.models.models import User, Habit, HabitLog
 from app.main import app
 
 
@@ -80,53 +81,44 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 
 async def _make_user(db: AsyncSession, **kwargs) -> dict:
-    user_id = kwargs.get("id", uuid.uuid4())
-    email = kwargs.get("email", f"test_{user_id.hex[:8]}@example.com")
-    name = kwargs.get("name", "Test User")
-    google_sub = kwargs.get("google_sub", f"google_{user_id.hex[:8]}")
-
-    await db.execute(
-        text("""
-            INSERT INTO users (id, email, name, google_sub, tooltip_log_seen, tooltip_comment_seen)
-            VALUES (:id, :email, :name, :google_sub, false, false)
-        """),
-        {"id": str(user_id), "email": email, "name": name, "google_sub": google_sub}
+    user = User(
+        id=kwargs.get("id", uuid.uuid4()),
+        email=kwargs.get("email", f"test_{uuid.uuid4().hex[:8]}@example.com"),
+        name=kwargs.get("name", "Test User"),
+        google_sub=kwargs.get("google_sub", f"google_{uuid.uuid4().hex[:8]}"),
     )
+    db.add(user)
     await db.commit()
+    await db.refresh(user)
 
-    token = create_access_token(str(user_id))
-    return {"id": str(user_id), "email": email, "name": name, "token": token}
+    token = create_access_token(str(user.id))
+    return {"id": str(user.id), "email": user.email, "name": user.name, "token": token}
 
 
 async def _make_habit(db: AsyncSession, user_id: str, **kwargs) -> dict:
-    habit_id = kwargs.get("id", uuid.uuid4())
-    name = kwargs.get("name", "Test Habit")
-
-    await db.execute(
-        text("""
-            INSERT INTO habits (id, user_id, name)
-            VALUES (:id, :user_id, :name)
-        """),
-        {"id": str(habit_id), "user_id": user_id, "name": name}
+    habit = Habit(
+        id=kwargs.get("id", uuid.uuid4()),
+        user_id=user_id,
+        name=kwargs.get("name", "Test Habit"),
     )
+    db.add(habit)
     await db.commit()
-    return {"id": str(habit_id), "name": name, "user_id": user_id}
+    await db.refresh(habit)
+    return {"id": str(habit.id), "name": habit.name, "user_id": user_id}
 
 
 async def _make_log(db: AsyncSession, user_id: str, habit_id: str, **kwargs) -> dict:
-    log_id = kwargs.get("id", uuid.uuid4())
-    log_date = kwargs.get("log_date", date.today())
-    comment = kwargs.get("comment", None)
-
-    await db.execute(
-        text("""
-            INSERT INTO habit_logs (id, habit_id, user_id, log_date, comment)
-            VALUES (:id, :habit_id, :user_id, :log_date, :comment)
-        """),
-        {"id": str(log_id), "habit_id": habit_id, "user_id": user_id, "log_date": log_date, "comment": comment}
+    log = HabitLog(
+        id=kwargs.get("id", uuid.uuid4()),
+        habit_id=habit_id,
+        user_id=user_id,
+        log_date=kwargs.get("log_date", date.today()),
+        comment=kwargs.get("comment", None),
     )
+    db.add(log)
     await db.commit()
-    return {"id": str(log_id), "habit_id": habit_id, "log_date": str(log_date), "comment": comment}
+    await db.refresh(log)
+    return {"id": str(log.id), "habit_id": habit_id, "log_date": str(log.log_date), "comment": log.comment}
 
 
 @pytest_asyncio.fixture

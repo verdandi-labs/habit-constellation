@@ -39,6 +39,8 @@ class UserPatchRequest(BaseModel):
     tooltip_log_seen: bool | None = None
     tooltip_comment_seen: bool | None = None
 
+    model_config = {"extra": "forbid"}
+
 
 class HabitCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=60)
@@ -90,7 +92,7 @@ class LogResponse(BaseModel):
 
 
 class LogPatchRequest(BaseModel):
-    comment: str | None = None
+    comment: str | None = Field(None, max_length=500)
 
 
 class LogRegistryItem(BaseModel):

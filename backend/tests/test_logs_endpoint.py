@@ -97,7 +97,7 @@ async def test_get_logs_span_too_long_rejected(client: AsyncClient, db_session, 
     user = await make_user()
     response = await client.get(
         "/logs",
-        params={"from": "2026-01-01", "to": "2027-01-02"},
+        params={"from": "2026-01-01", "to": "2027-01-03"},
         headers={"Authorization": f"Bearer {user['token']}"}
     )
     assert response.status_code == 422

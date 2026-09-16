@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 from httpx import AsyncClient
+from app.core.google import InvalidGoogleToken
 
 
 @pytest.mark.asyncio
@@ -27,7 +28,7 @@ async def test_auth_google_valid_token(client: AsyncClient, db_session):
 
 @pytest.mark.asyncio
 async def test_auth_google_invalid_token(client: AsyncClient):
-    with patch("app.routers.auth.verify_google_token", side_effect=Exception("Invalid")):
+    with patch("app.routers.auth.verify_google_token", side_effect=InvalidGoogleToken("Invalid")):
         response = await client.post(
             "/auth/google",
             json={"id_token": "invalid_token"}

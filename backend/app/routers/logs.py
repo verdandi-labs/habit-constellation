@@ -139,7 +139,7 @@ async def list_logs(
 
     habits_result = await db.execute(
         select(Habit)
-        .where(Habit.user_id == user.id, Habit.created_at <= datetime.combine(to_date, datetime.min.time(), tzinfo=timezone.utc))
+        .where(Habit.user_id == user.id, Habit.created_at <= datetime.combine(to_date, datetime.max.time(), tzinfo=timezone.utc))
         .order_by(Habit.created_at.asc())
     )
     habits = habits_result.scalars().all()

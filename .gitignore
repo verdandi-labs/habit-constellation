@@ -43,3 +43,21 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Python / Backend
+.env
+.env.*
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Android secrets
+*.json
+!android/app/src/main/res/values/strings.xml
+
+# Alembic
+backend/alembic/versions/*.pyc

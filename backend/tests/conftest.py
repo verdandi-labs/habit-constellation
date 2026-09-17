@@ -6,11 +6,13 @@ from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
+from alembic.config import Config
+from alembic import command
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 from sqlalchemy import text
 
-from app.core.database import Base, get_db
+from app.core.database import get_db
 from app.core.config import get_settings
 from app.core.auth import create_access_token, hash_token
 from app.models.models import User, Habit, HabitLog
@@ -40,7 +42,10 @@ async def setup_db():
     async with engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
-        await conn.run_sync(Base.metadata.create_all)
+    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", TEST_DB_URL)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, lambda: command.upgrade(alembic_cfg, "head"))
     await engine.dispose()
     yield
     engine = create_async_engine(TEST_DB_URL, echo=False)

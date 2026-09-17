@@ -54,6 +54,13 @@ class FakeRepository implements HabitRepository {
       name: name,
       createdAt: clock.now(),
     );
+    final todayStr = '${clock.now().year}-${clock.now().month.toString().padLeft(2, '0')}-${clock.now().day.toString().padLeft(2, '0')}';
+    _habits.putIfAbsent(todayStr, () => []);
+    _habits[todayStr]!.add(HabitWithTodayLog(
+      id: habit.id,
+      name: habit.name,
+      todayLog: null,
+    ));
     return habit;
   }
 
@@ -79,6 +86,21 @@ class FakeRepository implements HabitRepository {
       logDate: logDate,
     );
     _logs[log.id] = log;
+    final todayStr = '${clock.now().year}-${clock.now().month.toString().padLeft(2, '0')}-${clock.now().day.toString().padLeft(2, '0')}';
+    final habits = _habits[todayStr] ?? [];
+    final idx = habits.indexWhere((h) => h.id == habitId);
+    if (idx != -1) {
+      final habit = habits[idx];
+      habits[idx] = HabitWithTodayLog(
+        id: habit.id,
+        name: habit.name,
+        todayLog: TodayLog(
+          id: log.id,
+          logDate: logDate,
+          comment: null,
+        ),
+      );
+    }
     return log;
   }
 
@@ -86,6 +108,17 @@ class FakeRepository implements HabitRepository {
   Future<void> deleteLog(String habitId, String logDate) async {
     _logs.removeWhere((_, log) =>
         log.habitId == habitId && log.logDate == logDate);
+    final todayStr = '${clock.now().year}-${clock.now().month.toString().padLeft(2, '0')}-${clock.now().day.toString().padLeft(2, '0')}';
+    final habits = _habits[todayStr] ?? [];
+    final idx = habits.indexWhere((h) => h.id == habitId);
+    if (idx != -1) {
+      final habit = habits[idx];
+      habits[idx] = HabitWithTodayLog(
+        id: habit.id,
+        name: habit.name,
+        todayLog: null,
+      );
+    }
   }
 
   @override
@@ -101,6 +134,21 @@ class FakeRepository implements HabitRepository {
       comment: comment,
     );
     _logs[logId] = updated;
+    final todayStr = '${clock.now().year}-${clock.now().month.toString().padLeft(2, '0')}-${clock.now().day.toString().padLeft(2, '0')}';
+    final habits = _habits[todayStr] ?? [];
+    final idx = habits.indexWhere((h) => h.todayLog?.id == logId);
+    if (idx != -1) {
+      final habit = habits[idx];
+      habits[idx] = HabitWithTodayLog(
+        id: habit.id,
+        name: habit.name,
+        todayLog: TodayLog(
+          id: logId,
+          logDate: existing.logDate,
+          comment: comment,
+        ),
+      );
+    }
     return updated;
   }
 

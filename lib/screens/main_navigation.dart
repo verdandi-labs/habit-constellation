@@ -4,7 +4,13 @@ import 'package:clock/clock.dart';
 import 'package:habit_constellation/screens/home_screen.dart';
 import 'package:habit_constellation/screens/constellation_screen.dart';
 import 'package:habit_constellation/providers/habits_provider.dart';
+import 'package:habit_constellation/models/log.dart';
 import 'dart:async';
+
+final constellationProvider = FutureProvider<List<LogEntry>>((ref) async {
+  await Future.delayed(const Duration(seconds: 1));
+  return const [];
+});
 
 class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
@@ -61,6 +67,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final constellationAsync = ref.watch(constellationProvider);
     return IndexedStack(
       index: _currentIndex,
       children: [
@@ -70,6 +77,9 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         ConstellationScreen(
           habits: const [],
           logs: const [],
+          isLoading: constellationAsync.isLoading,
+          error: constellationAsync.error,
+          onRetry: () => ref.invalidate(constellationProvider),
         ),
       ],
     );

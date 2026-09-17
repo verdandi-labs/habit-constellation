@@ -302,7 +302,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ],
                 ),
-                loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF7AB6E0))),
+                loading: () => _HomeSkeleton(),
                 error: (e, _) => Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -314,10 +314,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           decoration: BoxDecoration(
-                            border: Border.all(color: Colors.white12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text('Retry', style: kInter(size: 13, color: const Color(0xFF7AB6E0))),
+                          child: Text('Retry', style: kInter(size: 13, color: kBlueGlow)),
                         ),
                       ),
                     ],
@@ -600,6 +600,64 @@ class _AddHabitFooter extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HomeSkeleton extends StatelessWidget {
+  const _HomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 100),
+      children: [
+        _HomeHeader(onSettings: () {}),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white.withValues(alpha: 0.022),
+            ),
+            child: Column(
+              children: List.generate(4, (i) {
+                return Column(children: [
+                  if (i > 0) Divider(height: 1, thickness: 1, indent: 18, endIndent: 18,
+                    color: Colors.white.withValues(alpha: 0.048)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 120, height: 15,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          width: 32, height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.28),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]);
+              }),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

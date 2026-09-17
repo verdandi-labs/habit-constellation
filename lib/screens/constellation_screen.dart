@@ -10,21 +10,30 @@ import 'package:habit_constellation/screens/sheets/dot_modal.dart';
 class ConstellationScreen extends StatefulWidget {
   final List<LogRegistryItem> habits;
   final List<LogEntry> logs;
+  final bool isLoading;
+  final Object? error;
+  final VoidCallback onRetry;
 
   const ConstellationScreen({
     super.key,
     required this.habits,
     required this.logs,
+    this.isLoading = false,
+    this.error,
+    required this.onRetry,
   });
 
   @override
   State<ConstellationScreen> createState() => _ConstellationScreenState();
 }
 
-class _ConstellationScreenState extends State<ConstellationScreen> {
+class _ConstellationScreenState extends State<ConstellationScreen>
+    with TickerProviderStateMixin {
   late int _viewYear;
   late int _viewMonth;
   bool _showLines = false;
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -32,6 +41,20 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
     final now = clock.now();
     _viewYear = now.year;
     _viewMonth = now.month;
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _pulseAnimation = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   bool get _isCurrent {
@@ -148,19 +171,26 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
                     ),
                   ),
                   Expanded(
-                    child: monthLogs.isEmpty
-                      ? Center(
-                          child: Text('This month\'s sky is dark.',
-                            style: kInter(size: 13, color: const Color(0xFF3A4560))),
-                        )
-                      : GestureDetector(
-                          onTapUp: (details) => _handleTap(context, details),
-                          child: _ConstellationCanvas(
-                            habits: widget.habits,
-                            logs: monthLogs,
-                            showLines: _showLines,
-                          ),
-                        ),
+                    child: widget.isLoading
+                      ? _ConstellationSkeleton(pulseAnimation: _pulseAnimation)
+                      : widget.error != null
+                        ? _ErrorBanner(
+                            message: 'Something went wrong',
+                            onRetry: widget.onRetry,
+                          )
+                        : monthLogs.isEmpty
+                          ? Center(
+                              child: Text('This month\'s sky is dark.',
+                                style: kInter(size: 13, color: const Color(0xFF3A4560))),
+                            )
+                          : GestureDetector(
+                              onTapUp: (details) => _handleTap(context, details),
+                              child: _ConstellationCanvas(
+                                habits: widget.habits,
+                                logs: monthLogs,
+                                showLines: _showLines,
+                              ),
+                            ),
                   ),
                 ],
               ),
@@ -175,6 +205,67 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ConstellationSkeleton extends StatelessWidget {
+  final Animation<double> pulseAnimation;
+
+  const _ConstellationSkeleton({required this.pulseAnimation});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: pulseAnimation,
+      builder: (context, child) {
+        return Center(
+          child: Opacity(
+            opacity: 0.3 + (pulseAnimation.value * 0.4),
+            child: Container(
+              width: 24, height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 1,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorBanner({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message, style: kInter(size: 14, color: const Color(0xFF7888A0))),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: onRetry,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('Retry', style: kInter(size: 13, color: kBlueGlow)),
+            ),
+          ),
+        ],
       ),
     );
   }

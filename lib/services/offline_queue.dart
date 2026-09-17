@@ -44,6 +44,13 @@ class OfflineQueue {
 
   List<QueuedAction> get items => List.unmodifiable(_queue);
 
+  Future<List<QueuedAction>> drain() async {
+    final items = List.of(_queue);
+    _queue.clear();
+    await _save();
+    return items;
+  }
+
   Future<void> enqueue(QueuedAction action) async {
     _queue.removeWhere((a) => a.habitId == action.habitId);
     _queue.add(action);

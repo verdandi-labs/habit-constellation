@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:clock/clock.dart';
 import 'package:habit_constellation/theme.dart';
 import 'package:habit_constellation/models/habit.dart';
@@ -11,6 +13,7 @@ import 'package:habit_constellation/screens/sheets/comment_sheet.dart';
 import 'package:habit_constellation/screens/sheets/settings_sheet.dart';
 import 'package:habit_constellation/widgets/bottom_nav.dart';
 import 'package:habit_constellation/services/offline_queue.dart';
+import 'package:habit_constellation/services/toast_service.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback onGoConstellation;
@@ -26,7 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _tooltipText;
   Offset? _tooltipPosition;
   bool _showStarFlash = false;
-  bool _isOnline = true;
+  ConnectivityResult _connectivityResult = ConnectivityResult.none;
   final _offlineQueue = OfflineQueue();
   Set<String> _pendingHabitIds = {};
 
@@ -34,6 +37,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _loadPending();
+    _checkConnectivity();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadPending() async {
@@ -45,93 +54,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final habitsAsync = ref.watch(habitsProvider);
-
-    return Scaffold(
-      body: Container(
-        decoration: kBg,
-        child: SafeArea(
-          child: Stack(
-            children: [
-              habitsAsync.when(
-                data: (habits) => ListView(
-                  padding: const EdgeInsets.only(bottom: 100),
-                  children: [
-                    _HomeHeader(onSettings: () => _showSettings(context)),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _HabitCard(
-                        habits: habits,
-                        isOnline: _isOnline,
-                        pendingHabitIds: _pendingHabitIds,
-                        onToggleLog: (h) => _toggleLog(h, context),
-                        onTapName: (h) => _showEditHabit(context, h),
-                        onTapComment: (h) => _showComment(context, h),
-                        onAddHabit: () => _showAddHabit(context),
-                      ),
-                    ),
-                  ],
-                ),
-                loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF7AB6E0))),
-                error: (e, _) => Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Something went wrong', style: kInter(size: 14, color: const Color(0xFF7888A0))),
-                      const SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: () => ref.invalidate(habitsProvider),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.white12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text('Retry', style: kInter(size: 13, color: const Color(0xFF7AB6E0))),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0, left: 0, right: 0,
-                child: BottomNav(
-                  active: 'home',
-                  onHome: () {},
-                  onConstellation: widget.onGoConstellation,
-                ),
-              ),
-              if (_showStarFlash)
-                Positioned.fill(
-                  child: Center(
-                    child: AnimatedOpacity(
-                      opacity: _showStarFlash ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 300),
-                      child: Icon(Icons.auto_awesome, size: 48, color: Colors.white.withValues(alpha: 0.8)),
-                    ),
-                  ),
-                ),
-              if (_showTooltip && _tooltipPosition != null)
-                Positioned(
-                  left: _tooltipPosition!.dx,
-                  top: _tooltipPosition!.dy,
-                  child: _TooltipBubble(text: _tooltipText ?? ''),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _checkConnectivity() async {
+    final results = await Connectivity().checkConnectivity();
+    final isConnected = results.any((r) => r != ConnectivityResult.none);
+    if (mounted) {
+      setState(() {
+        _connectivityResult = isConnected ? ConnectivityResult.wifi : ConnectivityResult.none;
+      });
+      if (isConnected) {
+        _syncQueue();
+      }
+    }
   }
+
+  Future<void> _syncQueue() async {
+    final items = await _offlineQueue.drain();
+    final repository = ref.read(repositoryProvider);
+    final remaining = <QueuedAction>[];
+    for (final action in items) {
+      try {
+        if (action.action == QueueAction.log) {
+          await repository.logHabit(action.habitId, action.logDate);
+        } else if (action.action == QueueAction.undo) {
+          await repository.deleteLog(action.habitId, action.logDate);
+        }
+        if (mounted) {
+          setState(() {
+            _pendingHabitIds.remove(action.habitId);
+          });
+        }
+      } catch (e) {
+        remaining.add(action);
+        if (mounted) {
+          setState(() {
+            _pendingHabitIds.add(action.habitId);
+          });
+          ToastService.show('Sync failed, will retry');
+        }
+      }
+    }
+    for (final action in remaining) {
+      await _offlineQueue.enqueue(action);
+    }
+  }
+
+  bool get isOnline => _connectivityResult != ConnectivityResult.none;
 
   void _toggleLog(HabitWithTodayLog habit, BuildContext context) {
     final repository = ref.read(repositoryProvider);
     final now = clock.now();
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    if (!isOnline) {
+      _offlineQueue.enqueue(QueuedAction(
+        habitId: habit.id,
+        logDate: dateStr,
+        action: habit.isDoneToday ? QueueAction.undo : QueueAction.log,
+      ));
+      if (habit.isDoneToday) {
+        setState(() {
+          _pendingHabitIds.add(habit.id);
+        });
+      } else {
+        _showStarFlashAnimation();
+        setState(() {
+          _pendingHabitIds.add(habit.id);
+        });
+      }
+      return;
+    }
 
     if (habit.isDoneToday) {
       if (habit.todayLog?.hasComment ?? false) {
@@ -155,6 +146,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       repository.logHabit(habit.id, dateStr).then((_) {
         ref.invalidate(habitsProvider);
         _showFirstLogTooltips();
+      }).catchError((_) {
+        _offlineQueue.enqueue(QueuedAction(
+          habitId: habit.id,
+          logDate: dateStr,
+          action: QueueAction.log,
+        ));
+        setState(() {
+          _pendingHabitIds.add(habit.id);
+        });
       });
     }
   }
@@ -271,6 +271,89 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final habitsAsync = ref.watch(habitsProvider);
+
+    return Scaffold(
+      body: Container(
+        decoration: kBg,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              habitsAsync.when(
+                data: (habits) => ListView(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  children: [
+                    _HomeHeader(onSettings: () => _showSettings(context)),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _HabitCard(
+                        habits: habits,
+                        isOnline: isOnline,
+                        pendingHabitIds: _pendingHabitIds,
+                        onToggleLog: (h) => _toggleLog(h, context),
+                        onTapName: (h) => _showEditHabit(context, h),
+                        onTapComment: (h) => _showComment(context, h),
+                        onAddHabit: () => _showAddHabit(context),
+                      ),
+                    ),
+                  ],
+                ),
+                loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF7AB6E0))),
+                error: (e, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Something went wrong', style: kInter(size: 14, color: const Color(0xFF7888A0))),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => ref.invalidate(habitsProvider),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('Retry', style: kInter(size: 13, color: const Color(0xFF7AB6E0))),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                child: BottomNav(
+                  active: 'home',
+                  onHome: () {},
+                  onConstellation: widget.onGoConstellation,
+                ),
+              ),
+              if (_showStarFlash)
+                Positioned.fill(
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _showStarFlash ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Icon(Icons.auto_awesome, size: 48, color: Colors.white.withValues(alpha: 0.8)),
+                    ),
+                  ),
+                ),
+              if (_showTooltip && _tooltipPosition != null)
+                Positioned(
+                  left: _tooltipPosition!.dx,
+                  top: _tooltipPosition!.dy,
+                  child: _TooltipBubble(text: _tooltipText ?? ''),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _TooltipBubble extends StatelessWidget {
@@ -282,7 +365,7 @@ class _TooltipBubble extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xEEE080B14).withValues(alpha: 0.95),
+        color: const Color(0xEEE080B4).withValues(alpha: 0.95),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -429,7 +512,7 @@ class _HabitRow extends StatelessWidget {
             onTap: canComment ? onTapComment : null,
             child: SizedBox(
               width: 28, height: 28,
-              child: Center(child: _EnvelopeIcon(blue: hasNote)),
+              child: Center(child: _EnvelopeIcon(blue: hasNote, dimmed: !canComment)),
             ),
           ),
           const SizedBox(width: 12),
@@ -480,13 +563,14 @@ class _LogButton extends StatelessWidget {
 
 class _EnvelopeIcon extends StatelessWidget {
   final bool blue;
-  const _EnvelopeIcon({required this.blue});
+  final bool dimmed;
+  const _EnvelopeIcon({required this.blue, required this.dimmed});
 
   @override
   Widget build(BuildContext context) {
-    final color = blue ? const Color(0xFF7AB6E0) : Colors.white.withValues(alpha: 0.35);
-    return Icon(Icons.mail_outline_rounded, size: 18, color: color,
-      shadows: blue ? [Shadow(color: const Color(0xFF7AB6E0).withValues(alpha: 0.5), blurRadius: 6)] : null);
+    final color = dimmed ? const Color(0xFF4A5570) : (blue ? const Color(0xFF7AB6E0) : const Color(0xFF4A5570));
+    return Icon(Icons.mail_outline_rounded, size: 18, color: color.withValues(alpha: dimmed ? 0.35 : (blue ? 1.0 : 0.35)),
+      shadows: blue && !dimmed ? [Shadow(color: const Color(0xFF7AB6E0).withValues(alpha: 0.5), blurRadius: 6)] : null);
   }
 }
 

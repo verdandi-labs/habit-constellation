@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:habit_constellation/screens/home_screen.dart';
 import 'package:habit_constellation/screens/constellation_screen.dart';
 import 'package:habit_constellation/providers/habits_provider.dart';
+import 'dart:async';
 
 class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
@@ -12,31 +13,44 @@ class MainNavigation extends ConsumerStatefulWidget {
   ConsumerState<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends ConsumerState<MainNavigation> with WidgetsBindingObserver {
+class _MainNavigationState extends ConsumerState<MainNavigation> {
   int _currentIndex = 0;
   String _lastDate = '';
+  AppLifecycleListener? _lifecycleListener;
+  Timer? _periodicTimer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _lastDate = _todayString();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: _onResume,
+    );
+    _startPeriodicTimer();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _lifecycleListener?.dispose();
+    _periodicTimer?.cancel();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      final currentDate = _todayString();
-      if (currentDate != _lastDate) {
-        _lastDate = currentDate;
-        ref.invalidate(habitsProvider);
-      }
+  void _onResume() {
+    _checkDayChange();
+  }
+
+  void _startPeriodicTimer() {
+    _periodicTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
+      _checkDayChange();
+    });
+  }
+
+  void _checkDayChange() {
+    final currentDate = _todayString();
+    if (currentDate != _lastDate) {
+      _lastDate = currentDate;
+      ref.invalidate(habitsProvider);
     }
   }
 

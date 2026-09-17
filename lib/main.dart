@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_constellation/screens/auth_screen.dart';
 import 'package:habit_constellation/screens/main_navigation.dart';
 import 'package:habit_constellation/providers/repository_provider.dart';
+import 'package:habit_constellation/services/toast_service.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -19,6 +20,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF07091C),
       ),
+      scaffoldMessengerKey: scaffoldMessengerKey,
       home: const AuthGate(),
     );
   }

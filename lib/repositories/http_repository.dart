@@ -143,6 +143,32 @@ class HttpRepository implements HabitRepository {
   }
 
   @override
+  Future<bool> silentSignIn() async {
+    try {
+      final refreshToken = await _tokenStore.getRefreshToken();
+      if (refreshToken == null) return false;
+      final uri = Uri.parse('$baseUrl/auth/refresh');
+      final response = await _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': refreshToken}),
+      );
+      if (response.statusCode != 200) {
+        await _tokenStore.clear();
+        return false;
+      }
+      final data = jsonDecode(response.body);
+      await _tokenStore.saveTokens(
+        accessToken: data['access_token'],
+        refreshToken: data['refresh_token'],
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
   Future<User> getCurrentUser() async {
     final response = await _get('/me');
     _checkError(response);

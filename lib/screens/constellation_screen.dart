@@ -5,6 +5,7 @@ import 'package:habit_constellation/theme.dart';
 import 'package:habit_constellation/models/log.dart';
 import 'package:habit_constellation/services/seeded_rng.dart';
 import 'package:habit_constellation/widgets/bottom_nav.dart';
+import 'package:habit_constellation/screens/sheets/dot_modal.dart';
 
 class ConstellationScreen extends StatefulWidget {
   final List<LogRegistryItem> habits;
@@ -54,6 +55,36 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
       if (_viewMonth == 12) { _viewMonth = 1; _viewYear++; }
       else _viewMonth++;
     });
+  }
+
+  void _handleTap(BuildContext context, TapUpDetails details) {
+    final box = context.findRenderObject() as RenderBox;
+    final tapPos = box.globalToLocal(details.globalPosition);
+
+    for (final log in _monthLogs) {
+      final hi = widget.habits.indexWhere((h) => h.id == log.habitId);
+      if (hi == -1) continue;
+
+      final rng = SeededRng('${log.id}-$hi');
+      final day = int.tryParse(log.logDate.substring(8)) ?? 1;
+      final laneHeight = 90.0;
+      final laneCenter = (hi + 0.5) * laneHeight + 20;
+      final jitterY = (rng.next() - 0.5) * laneHeight * 0.65;
+      final jitterX = (rng.next() - 0.5) * 0.04 * box.size.width;
+      final x = (day / 31) * (box.size.width - 24) + 12 + jitterX;
+      final y = laneCenter + jitterY;
+
+      final dist = (Offset(x, y) - tapPos).distance;
+      if (dist < 24) {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (_) => DotModal(log: log),
+        );
+        break;
+      }
+    }
   }
 
   @override
@@ -122,10 +153,13 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
                           child: Text('This month\'s sky is dark.',
                             style: kInter(size: 13, color: const Color(0xFF3A4560))),
                         )
-                      : _ConstellationCanvas(
-                          habits: widget.habits,
-                          logs: monthLogs,
-                          showLines: _showLines,
+                      : GestureDetector(
+                          onTapUp: (details) => _handleTap(context, details),
+                          child: _ConstellationCanvas(
+                            habits: widget.habits,
+                            logs: monthLogs,
+                            showLines: _showLines,
+                          ),
                         ),
                   ),
                 ],

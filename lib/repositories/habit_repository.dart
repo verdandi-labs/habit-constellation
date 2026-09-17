@@ -6,6 +6,7 @@ abstract class HabitRepository {
   Future<User> signInWithGoogle(String idToken);
   Future<void> signOut();
   Future<bool> isSignedIn();
+  Future<bool> silentSignIn();
   Future<User> getCurrentUser();
 
   Future<List<HabitWithTodayLog>> getHabits(String date);

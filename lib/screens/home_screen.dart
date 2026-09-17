@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:clock/clock.dart';
 import 'package:habit_constellation/theme.dart';
 import 'package:habit_constellation/models/habit.dart';
 import 'package:habit_constellation/providers/habits_provider.dart';
@@ -9,6 +10,7 @@ import 'package:habit_constellation/screens/sheets/edit_habit_sheet.dart';
 import 'package:habit_constellation/screens/sheets/comment_sheet.dart';
 import 'package:habit_constellation/screens/sheets/settings_sheet.dart';
 import 'package:habit_constellation/widgets/bottom_nav.dart';
+import 'package:habit_constellation/services/offline_queue.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback onGoConstellation;
@@ -20,6 +22,29 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _showTooltip = false;
+  String? _tooltipText;
+  Offset? _tooltipPosition;
+  bool _showStarFlash = false;
+  bool _isOnline = true;
+  final _offlineQueue = OfflineQueue();
+  Set<String> _pendingHabitIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPending();
+  }
+
+  Future<void> _loadPending() async {
+    await _offlineQueue.load();
+    if (mounted) {
+      setState(() {
+        _pendingHabitIds = _offlineQueue.items.map((a) => a.habitId).toSet();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final habitsAsync = ref.watch(habitsProvider);
@@ -30,26 +55,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              ListView(
-                padding: const EdgeInsets.only(bottom: 100),
-                children: [
-                  _HomeHeader(onSettings: () => _showSettings(context)),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: habitsAsync.when(
-                      data: (habits) => _HabitCard(
+              habitsAsync.when(
+                data: (habits) => ListView(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  children: [
+                    _HomeHeader(onSettings: () => _showSettings(context)),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _HabitCard(
                         habits: habits,
-                        onToggleLog: _toggleLog,
+                        isOnline: _isOnline,
+                        pendingHabitIds: _pendingHabitIds,
+                        onToggleLog: (h) => _toggleLog(h, context),
                         onTapName: (h) => _showEditHabit(context, h),
                         onTapComment: (h) => _showComment(context, h),
                         onAddHabit: () => _showAddHabit(context),
                       ),
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Center(child: Text('Error: $e')),
                     ),
+                  ],
+                ),
+                loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF7AB6E0))),
+                error: (e, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Something went wrong', style: kInter(size: 14, color: const Color(0xFF7888A0))),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => ref.invalidate(habitsProvider),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('Retry', style: kInter(size: 13, color: const Color(0xFF7AB6E0))),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
               Positioned(
                 bottom: 0, left: 0, right: 0,
@@ -59,6 +105,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   onConstellation: widget.onGoConstellation,
                 ),
               ),
+              if (_showStarFlash)
+                Positioned.fill(
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _showStarFlash ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Icon(Icons.auto_awesome, size: 48, color: Colors.white.withValues(alpha: 0.8)),
+                    ),
+                  ),
+                ),
+              if (_showTooltip && _tooltipPosition != null)
+                Positioned(
+                  left: _tooltipPosition!.dx,
+                  top: _tooltipPosition!.dy,
+                  child: _TooltipBubble(text: _tooltipText ?? ''),
+                ),
             ],
           ),
         ),
@@ -66,20 +128,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _toggleLog(HabitWithTodayLog habit) {
+  void _toggleLog(HabitWithTodayLog habit, BuildContext context) {
     final repository = ref.read(repositoryProvider);
-    final today = DateTime.now();
-    final dateStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final now = clock.now();
+    final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     if (habit.isDoneToday) {
-      repository.deleteLog(habit.id, dateStr).then((_) {
-        ref.invalidate(habitsProvider);
-      });
+      if (habit.todayLog?.hasComment ?? false) {
+        showDialog(context: context, builder: (_) => ConfirmDialog(
+          message: 'This also deletes your note.',
+          confirmLabel: 'Delete note & undo',
+          danger: true,
+          onConfirm: () {
+            repository.deleteLog(habit.id, dateStr).then((_) {
+              ref.invalidate(habitsProvider);
+            });
+          },
+        ));
+      } else {
+        repository.deleteLog(habit.id, dateStr).then((_) {
+          ref.invalidate(habitsProvider);
+        });
+      }
     } else {
+      _showStarFlashAnimation();
       repository.logHabit(habit.id, dateStr).then((_) {
         ref.invalidate(habitsProvider);
+        _showFirstLogTooltips();
       });
     }
+  }
+
+  void _showStarFlashAnimation() {
+    setState(() => _showStarFlash = true);
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _showStarFlash = false);
+    });
+  }
+
+  void _showFirstLogTooltips() async {
+    final user = await ref.read(repositoryProvider).getCurrentUser();
+    if (user.tooltipLogSeen) return;
+
+    setState(() {
+      _showTooltip = true;
+      _tooltipText = 'Tap again to undo';
+    });
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+
+    setState(() {
+      _tooltipText = 'Write how it felt, if you feel like it';
+    });
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+
+    setState(() => _showTooltip = false);
+    await ref.read(repositoryProvider).patchMe(
+      tooltipLogSeen: true,
+      tooltipCommentSeen: true,
+    );
   }
 
   void _showAddHabit(BuildContext context) {
@@ -158,15 +266,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       isScrollControlled: true,
       builder: (_) => SettingsSheet(onLogout: () {
         Navigator.pop(context);
-        showDialog(context: context, builder: (_) => ConfirmDialog(
-          message: 'Log out of Habit Constellation?',
-          confirmLabel: 'Log out',
-          danger: true,
-          onConfirm: () {
-            ref.read(repositoryProvider).signOut();
-          },
-        ));
+        ref.read(repositoryProvider).signOut();
+        Navigator.popUntil(context, (route) => route.isFirst);
       }),
+    );
+  }
+}
+
+class _TooltipBubble extends StatelessWidget {
+  final String text;
+  const _TooltipBubble({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xEEE080B14).withValues(alpha: 0.95),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(text, style: kInter(size: 12.5, color: const Color(0xFFD0D8E8))),
     );
   }
 }
@@ -215,6 +335,8 @@ class _HabitCard extends StatelessWidget {
   final void Function(HabitWithTodayLog) onTapName;
   final void Function(HabitWithTodayLog) onTapComment;
   final VoidCallback onAddHabit;
+  final bool isOnline;
+  final Set<String> pendingHabitIds;
 
   const _HabitCard({
     required this.habits,
@@ -222,15 +344,17 @@ class _HabitCard extends StatelessWidget {
     required this.onTapName,
     required this.onTapComment,
     required this.onAddHabit,
+    required this.isOnline,
+    required this.pendingHabitIds,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white.withOpacity(0.022),
+        color: Colors.white.withValues(alpha: 0.022),
       ),
       child: Column(
         children: [
@@ -247,16 +371,18 @@ class _HabitCard extends StatelessWidget {
               final habit = e.value;
               return Column(children: [
                 if (i > 0) Divider(height: 1, thickness: 1, indent: 18, endIndent: 18,
-                  color: Colors.white.withOpacity(0.048)),
+                  color: Colors.white.withValues(alpha: 0.048)),
                 _HabitRow(
                   habit: habit,
+                  isOnline: isOnline,
+                  isPending: pendingHabitIds.contains(habit.id),
                   onToggle: () => onToggleLog(habit),
                   onTapName: () => onTapName(habit),
                   onTapComment: () => onTapComment(habit),
                 ),
               ]);
             }),
-          Divider(height: 1, thickness: 1, color: Colors.white.withOpacity(0.055)),
+          Divider(height: 1, thickness: 1, color: Colors.white.withValues(alpha: 0.055)),
           _AddHabitFooter(onTap: onAddHabit),
         ],
       ),
@@ -266,12 +392,16 @@ class _HabitCard extends StatelessWidget {
 
 class _HabitRow extends StatelessWidget {
   final HabitWithTodayLog habit;
+  final bool isOnline;
+  final bool isPending;
   final VoidCallback onToggle;
   final VoidCallback onTapName;
   final VoidCallback onTapComment;
 
   const _HabitRow({
     required this.habit,
+    required this.isOnline,
+    required this.isPending,
     required this.onToggle,
     required this.onTapName,
     required this.onTapComment,
@@ -281,6 +411,7 @@ class _HabitRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final done = habit.isDoneToday;
     final hasNote = habit.todayLog?.hasComment ?? false;
+    final canComment = isOnline && done && !isPending;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
@@ -295,7 +426,7 @@ class _HabitRow extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           GestureDetector(
-            onTap: onTapComment,
+            onTap: canComment ? onTapComment : null,
             child: SizedBox(
               width: 28, height: 28,
               child: Center(child: _EnvelopeIcon(blue: hasNote)),
@@ -325,11 +456,11 @@ class _LogButton extends StatelessWidget {
           shape: BoxShape.circle,
           color: done ? const Color(0x23BCD5E4) : Colors.transparent,
           border: Border.all(
-            color: done ? const Color(0xA6C6D4EB) : Colors.white.withOpacity(0.28),
+            color: done ? const Color(0xA6C6D4EB) : Colors.white.withValues(alpha: 0.28),
             width: 1,
           ),
           boxShadow: done ? [
-            BoxShadow(color: kSilver.withOpacity(0.22), blurRadius: 10),
+            BoxShadow(color: kSilver.withValues(alpha: 0.22), blurRadius: 10),
           ] : null,
         ),
         child: done ? Center(
@@ -338,7 +469,7 @@ class _LogButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xD9D7E0F0),
-              boxShadow: [BoxShadow(color: const Color(0xD7E0F0).withOpacity(0.65), blurRadius: 7)],
+              boxShadow: [BoxShadow(color: const Color(0xD7E0F0).withValues(alpha: 0.65), blurRadius: 7)],
             ),
           ),
         ) : null,
@@ -353,9 +484,9 @@ class _EnvelopeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = blue ? const Color(0xFF7AB6E0) : Colors.white.withOpacity(0.35);
+    final color = blue ? const Color(0xFF7AB6E0) : Colors.white.withValues(alpha: 0.35);
     return Icon(Icons.mail_outline_rounded, size: 18, color: color,
-      shadows: blue ? [Shadow(color: const Color(0xFF7AB6E0).withOpacity(0.5), blurRadius: 6)] : null);
+      shadows: blue ? [Shadow(color: const Color(0xFF7AB6E0).withValues(alpha: 0.5), blurRadius: 6)] : null);
   }
 }
 
@@ -375,9 +506,9 @@ class _AddHabitFooter extends StatelessWidget {
               width: 20, height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withOpacity(0.18)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               ),
-              child: Icon(Icons.add, size: 12, color: Colors.white.withOpacity(0.35)),
+              child: Icon(Icons.add, size: 12, color: Colors.white.withValues(alpha: 0.35)),
             ),
             const SizedBox(width: 10),
             Text('add a new habit',

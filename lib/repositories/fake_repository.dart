@@ -34,6 +34,9 @@ class FakeRepository implements HabitRepository {
   Future<bool> isSignedIn() async => _signedIn;
 
   @override
+  Future<bool> silentSignIn() async => _signedIn;
+
+  @override
   Future<User> getCurrentUser() async {
     if (_currentUser == null) throw Exception('Not signed in');
     return _currentUser!;

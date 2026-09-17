@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:habit_constellation/screens/home_screen.dart';
-import 'package:habit_constellation/screens/constellation_screen.dart';
+import 'package:habit_constellation/screens/auth_screen.dart';
+import 'package:habit_constellation/screens/main_navigation.dart';
+import 'package:habit_constellation/providers/repository_provider.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -18,34 +19,30 @@ class MyApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF07091C),
       ),
-      home: const MainNavigation(),
+      home: const AuthGate(),
     );
   }
 }
 
-class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+class AuthGate extends ConsumerWidget {
+  const AuthGate({super.key});
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
-}
-
-class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return IndexedStack(
-      index: _currentIndex,
-      children: [
-        HomeScreen(
-          onGoConstellation: () => setState(() => _currentIndex = 1),
-        ),
-        ConstellationScreen(
-          habits: const [],
-          logs: const [],
-        ),
-      ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(repositoryProvider);
+    return FutureBuilder<bool>(
+      future: repository.silentSignIn(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator(color: Color(0xFF7AB6E0))),
+          );
+        }
+        if (snapshot.data == true) {
+          return const MainNavigation();
+        }
+        return const AuthScreen();
+      },
     );
   }
 }

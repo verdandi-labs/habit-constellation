@@ -33,6 +33,13 @@ async def auth_google(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)
     user = result.scalar_one_or_none()
 
     if user is None:
+        result = await db.execute(select(User).where(User.email == email))
+        existing = result.scalar_one_or_none()
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "account_exists", "message": "An account with this email already exists"}
+            )
         user = User(
             email=email,
             name=name,

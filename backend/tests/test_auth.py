@@ -96,6 +96,28 @@ async def test_refresh_token_rotation(client: AsyncClient, db_session, make_user
 
 
 @pytest.mark.asyncio
+async def test_auth_google_account_exists(client: AsyncClient, db_session):
+    mock_payload_a = {
+        "sub": "google_sub_a",
+        "email": "conflict@example.com",
+        "name": "User A",
+    }
+    with patch("app.routers.auth.verify_google_token", new_callable=AsyncMock, return_value=mock_payload_a):
+        resp = await client.post("/auth/google", json={"id_token": "token_a"})
+    assert resp.status_code == 200
+
+    mock_payload_b = {
+        "sub": "google_sub_b",
+        "email": "conflict@example.com",
+        "name": "User B",
+    }
+    with patch("app.routers.auth.verify_google_token", new_callable=AsyncMock, return_value=mock_payload_b):
+        resp = await client.post("/auth/google", json={"id_token": "token_b"})
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["code"] == "account_exists"
+
+
+@pytest.mark.asyncio
 async def test_refresh_invalid_token(client: AsyncClient):
     response = await client.post(
         "/auth/refresh",

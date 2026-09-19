@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:habit_constellation/theme.dart';
@@ -44,20 +45,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Habit Constellation',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w100,
-                      fontSize: 45,
-                      letterSpacing: 0.0,
-                      color: Colors.white,
+                  Transform.translate(
+                    offset: const Offset(0, -30),
+                    child: Text(
+                      'Habit Constellation',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w100,
+                        fontSize: 45,
+                        letterSpacing: 0.0,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text('Every habit you practice becomes a star.',
+                  const SizedBox(height: 4),
+                  Text('Every habit you practice\nbecomes a star',
                     textAlign: TextAlign.center,
-                    style: kRaleway(size: 16.5, spacing: 0.04, color: const Color(0xFFF0F0F0))),
+                    style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w300,
+                      fontSize: 16.5,
+                      letterSpacing: 0.04,
+                      color: const Color(0xFFF0F0F0),
+                    )),
                   const SizedBox(height: 64),
                   if (_loading)
                     const CircularProgressIndicator(color: Color(0xFF7AB6E0))
@@ -68,6 +77,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       Text(_error!, style: kInter(size: 12, color: const Color(0xFFE07070))),
                     ],
                   ],
+                  const SizedBox(height: 80),
+                  ColorFiltered(
+                    colorFilter: const ColorFilter.matrix([
+                      -1, 0, 0, 0, 1,
+                       0,-1, 0, 0, 1,
+                       0, 0,-1, 0, 1,
+                       0, 0, 0, 1, 0,
+                    ]),
+                    child: Image.asset('public/logo_2.png', width: 200, height: 200),
+                  ),
                 ],
               ),
             ),
@@ -99,19 +118,24 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFD6D6D6), width: 1),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          const Icon(Icons.g_mobiledata_rounded, color: Colors.white, size: 24),
-          const SizedBox(width: 6),
-          Text(
-            'Sign in',
-            style: GoogleFonts.interTight(
-              fontWeight: FontWeight.w200,
-              fontSize: 16,
-              color: Colors.white,
-              letterSpacing: 0.0,
-              height: 1,
+          const Positioned(
+            left: 9,
+            child: FaIcon(FontAwesomeIcons.google, color: Colors.white, size: 25),
+          ),
+          Align(
+            alignment: Alignment(0.04, 0),
+            child: Text(
+              'Sign in',
+              style: GoogleFonts.interTight(
+                fontWeight: FontWeight.w200,
+                fontSize: 19,
+                color: Colors.white,
+                letterSpacing: 0.0,
+                height: 1,
+              ),
             ),
           ),
         ],

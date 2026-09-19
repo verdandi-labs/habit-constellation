@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:habit_constellation/theme.dart';
 import 'package:habit_constellation/providers/repository_provider.dart';
 import 'package:habit_constellation/screens/main_navigation.dart';
@@ -42,13 +43,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Habit Constellation',
-                    style: kRaleway(size: 24, weight: FontWeight.w200, spacing: 0.22,
-                      color: const Color(0xFFC8D4E8))),
+                  Text(
+                    'Habit Constellation',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w100,
+                      fontSize: 45,
+                      letterSpacing: 0.0,
+                      color: Colors.white,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Text('Every habit you practice becomes a star.',
                     textAlign: TextAlign.center,
-                    style: kInter(size: 12.5, spacing: 0.04, color: const Color(0xFF4A5568))),
+                    style: kRaleway(size: 16.5, spacing: 0.04, color: const Color(0xFFF0F0F0))),
                   const SizedBox(height: 64),
                   if (_loading)
                     const CircularProgressIndicator(color: Color(0xFF7AB6E0))

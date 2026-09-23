@@ -225,7 +225,7 @@ Comments are not available offline (ADR-19).
 
 ### 4.5 Loading and errors
 
-Every screen has a subtle loading state and an error banner with retry. Error styling is neutral — never red.
+Every screen has a subtle loading state and an error banner with retry. Error text uses `#B77DE3` — never red.
 
 ---
 

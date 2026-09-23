@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:habit_constellation/repositories/http_repository.dart';
 import 'package:habit_constellation/theme.dart';
 import 'package:habit_constellation/providers/repository_provider.dart';
 import 'package:habit_constellation/screens/main_navigation.dart';
@@ -38,6 +40,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final authentication = await account.authentication;
       final idToken = authentication.idToken;
       if (idToken == null) {
+        debugPrint('Google sign-in: idToken is null');
         setState(() { _error = 'Sign in failed. Please try again.'; _loading = false; });
         return;
       }
@@ -48,9 +51,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         MaterialPageRoute(builder: (_) => const MainNavigation()),
         (route) => false,
       );
-    } catch (e) {
-      setState(() { _error = 'Sign in failed. Please try again.'; _loading = false; });
+    } catch (e, stackTrace) {
+      debugPrint('Sign-in failed: $e\n$stackTrace');
+      if (!mounted) return;
+      setState(() { _error = _errorMessage(e); _loading = false; });
     }
+  }
+
+  String _errorMessage(Object e) {
+    if (e is ApiException) {
+      switch (e.code) {
+        case 'invalid_google_token':
+          return 'Google sign-in verification failed. Please try again.';
+        case 'account_exists':
+          return 'An account with this email already exists.';
+        default:
+          return e.message;
+      }
+    }
+    if (e is AuthException) return e.message;
+    if (e is PlatformException) {
+      return e.message ?? 'Google sign-in failed. Please try again.';
+    }
+    return 'Sign in failed. Please try again.';
   }
 
   @override
@@ -94,7 +117,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     _GoogleSignInButton(onTap: _signIn),
                     if (_error != null) ...[
                       const SizedBox(height: 16),
-                      Text(_error!, style: kInter(size: 12, color: const Color(0xFFE07070))),
+                      Text(_error!, style: kInter(size: 12, color: const Color(0xFFB77DE3))),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: _signIn,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('Retry', style: kInter(size: 13, color: kBlueGlow)),
+                        ),
+                      ),
                     ],
                   ],
                   const SizedBox(height: 80),

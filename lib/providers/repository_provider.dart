@@ -4,7 +4,7 @@ import 'package:habit_constellation/repositories/fake_repository.dart';
 import 'package:habit_constellation/repositories/http_repository.dart';
 import 'package:habit_constellation/services/token_store.dart';
 
-const baseUrl = 'http://10.0.2.2:8000'; // Android emulator localhost
+const baseUrl = 'https://habit-constellation-api.onrender.com';
 
 final tokenStoreProvider = Provider((ref) => TokenStore());
 

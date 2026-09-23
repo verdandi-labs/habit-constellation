@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:habit_constellation/theme.dart';
 import 'package:habit_constellation/providers/repository_provider.dart';
@@ -15,13 +16,32 @@ class AuthScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
+  static const _serverClientId =
+      '412897576300-bpnnr222i7rdhjqmt35a2926fg2ir3da.apps.googleusercontent.com';
+
+  final _googleSignIn = GoogleSignIn(
+    scopes: ['openid', 'email', 'profile'],
+    serverClientId: _serverClientId,
+  );
+
   bool _loading = false;
   String? _error;
 
   Future<void> _signIn() async {
     setState(() { _loading = true; _error = null; });
     try {
-      await ref.read(repositoryProvider).signInWithGoogle('mock_token');
+      final account = await _googleSignIn.signIn();
+      if (account == null) {
+        if (mounted) setState(() { _loading = false; });
+        return;
+      }
+      final authentication = await account.authentication;
+      final idToken = authentication.idToken;
+      if (idToken == null) {
+        setState(() { _error = 'Sign in failed. Please try again.'; _loading = false; });
+        return;
+      }
+      await ref.read(repositoryProvider).signInWithGoogle(idToken);
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,

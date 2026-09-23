@@ -26,14 +26,26 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(repositoryProvider);
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  late final Future<bool> _silentSignIn;
+
+  @override
+  void initState() {
+    super.initState();
+    _silentSignIn = ref.read(repositoryProvider).silentSignIn();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: repository.silentSignIn(),
+      future: _silentSignIn,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(

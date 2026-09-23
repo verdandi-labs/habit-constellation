@@ -35,7 +35,8 @@ def do_run_migrations(connection):
 
 async def run_async_migrations():
     settings = get_settings()
-    url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    url = settings.DATABASE_URL or config.get_main_option("sqlalchemy.url")
+    config.set_main_option("sqlalchemy.url", url)
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

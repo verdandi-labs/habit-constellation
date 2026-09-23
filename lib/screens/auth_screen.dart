@@ -133,15 +133,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ],
                   ],
                   const SizedBox(height: 80),
-                  ColorFiltered(
-                    colorFilter: const ColorFilter.matrix([
-                      -1, 0, 0, 0, 1,
-                       0,-1, 0, 0, 1,
-                       0, 0,-1, 0, 1,
-                       0, 0, 0, 1, 0,
-                    ]),
-                    child: Image.asset('public/logo_2.png', width: 200, height: 200),
-                  ),
+                  Image.asset('public/logo_2.png', width: 200, height: 200),
                 ],
               ),
             ),

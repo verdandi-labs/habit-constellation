@@ -29,6 +29,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _tooltipText;
   Offset? _tooltipPosition;
   bool _showStarFlash = false;
+  final Map<String, GlobalKey> _logButtonKeys = {};
+  final Map<String, GlobalKey> _commentButtonKeys = {};
+  bool _firstLogTooltipsStarted = false;
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
   final _offlineQueue = OfflineQueue();
   Set<String> _pendingHabitIds = {};
@@ -120,6 +123,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() {
           _pendingHabitIds.add(habit.id);
         });
+        _showFirstLogTooltips(habit.id);
       }
       return;
     }
@@ -143,9 +147,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     } else {
       _showStarFlashAnimation();
+      _showFirstLogTooltips(habit.id);
       repository.logHabit(habit.id, dateStr).then((_) {
         ref.invalidate(habitsProvider);
-        _showFirstLogTooltips();
       }).catchError((_) {
         _offlineQueue.enqueue(QueuedAction(
           habitId: habit.id,
@@ -166,28 +170,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  void _showFirstLogTooltips() async {
-    final user = await ref.read(repositoryProvider).getCurrentUser();
-    if (user.tooltipLogSeen) return;
+  GlobalKey _keyFor(Map<String, GlobalKey> map, String habitId) =>
+      map.putIfAbsent(habitId, () => GlobalKey());
 
-    setState(() {
-      _showTooltip = true;
-      _tooltipText = 'Tap again to undo';
-    });
-    await Future.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
+  Offset? _screenPosition(GlobalKey key) {
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return null;
+    return box.localToGlobal(Offset.zero);
+  }
 
-    setState(() {
-      _tooltipText = 'Write how it felt, if you feel like it';
-    });
-    await Future.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
+  void _showFirstLogTooltips(String habitId) async {
+    try {
+      debugPrint('_showFirstLogTooltips entered');
+      if (_firstLogTooltipsStarted) return;
+      _firstLogTooltipsStarted = true;
 
-    setState(() => _showTooltip = false);
-    await ref.read(repositoryProvider).patchMe(
-      tooltipLogSeen: true,
-      tooltipCommentSeen: true,
-    );
+      final user = await ref.read(repositoryProvider).getCurrentUser();
+      debugPrint('tooltip_log_seen from /me: ${user.tooltipLogSeen}');
+      if (user.tooltipLogSeen) return;
+
+      debugPrint('Calling patchMe...');
+      try {
+        await ref.read(repositoryProvider).patchMe(
+          tooltipLogSeen: true,
+          tooltipCommentSeen: true,
+        );
+        debugPrint('patchMe succeeded');
+      } catch (e) {
+        debugPrint('patchMe failed: $e');
+      }
+
+      final logPos = _screenPosition(_keyFor(_logButtonKeys, habitId));
+      final commentPos = _screenPosition(_keyFor(_commentButtonKeys, habitId));
+      if (logPos == null) return;
+      final secondPos = commentPos ?? logPos;
+      _tooltipPosition = logPos;
+
+      setState(() {
+        _showTooltip = true;
+        _tooltipText = 'Tap again to undo';
+      });
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+
+      setState(() {
+        _tooltipPosition = secondPos;
+        _tooltipText = 'Write how it felt, if you feel like it';
+      });
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+
+      setState(() => _showTooltip = false);
+    } catch (_) {}
   }
 
   void _showAddHabit(BuildContext context) {
@@ -294,6 +328,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         habits: habits,
                         isOnline: isOnline,
                         pendingHabitIds: _pendingHabitIds,
+                        logButtonKeys: _logButtonKeys,
+                        commentButtonKeys: _commentButtonKeys,
                         onToggleLog: (h) => _toggleLog(h, context),
                         onTapName: (h) => _showEditHabit(context, h),
                         onTapComment: (h) => _showComment(context, h),
@@ -501,6 +537,8 @@ class _HabitCard extends StatelessWidget {
   final VoidCallback onAddHabit;
   final bool isOnline;
   final Set<String> pendingHabitIds;
+  final Map<String, GlobalKey> logButtonKeys;
+  final Map<String, GlobalKey> commentButtonKeys;
 
   const _HabitCard({
     required this.habits,
@@ -510,6 +548,8 @@ class _HabitCard extends StatelessWidget {
     required this.onAddHabit,
     required this.isOnline,
     required this.pendingHabitIds,
+    required this.logButtonKeys,
+    required this.commentButtonKeys,
   });
 
   @override
@@ -540,6 +580,8 @@ class _HabitCard extends StatelessWidget {
                   habit: habit,
                   isOnline: isOnline,
                   isPending: pendingHabitIds.contains(habit.id),
+                  logButtonKey: logButtonKeys.putIfAbsent(habit.id, () => GlobalKey()),
+                  commentButtonKey: commentButtonKeys.putIfAbsent(habit.id, () => GlobalKey()),
                   onToggle: () => onToggleLog(habit),
                   onTapName: () => onTapName(habit),
                   onTapComment: () => onTapComment(habit),
@@ -558,6 +600,8 @@ class _HabitRow extends StatelessWidget {
   final HabitWithTodayLog habit;
   final bool isOnline;
   final bool isPending;
+  final GlobalKey? logButtonKey;
+  final GlobalKey? commentButtonKey;
   final VoidCallback onToggle;
   final VoidCallback onTapName;
   final VoidCallback onTapComment;
@@ -566,6 +610,8 @@ class _HabitRow extends StatelessWidget {
     required this.habit,
     required this.isOnline,
     required this.isPending,
+    this.logButtonKey,
+    this.commentButtonKey,
     required this.onToggle,
     required this.onTapName,
     required this.onTapComment,
@@ -590,6 +636,7 @@ class _HabitRow extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           GestureDetector(
+            key: commentButtonKey,
             onTap: canComment ? onTapComment : null,
             child: SizedBox(
               width: 28, height: 28,
@@ -597,7 +644,7 @@ class _HabitRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          _LogButton(done: done, onTap: onToggle),
+          _LogButton(key: logButtonKey, done: done, onTap: onToggle),
         ],
       ),
     );
@@ -607,7 +654,7 @@ class _HabitRow extends StatelessWidget {
 class _LogButton extends StatelessWidget {
   final bool done;
   final VoidCallback onTap;
-  const _LogButton({required this.done, required this.onTap});
+  const _LogButton({super.key, required this.done, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

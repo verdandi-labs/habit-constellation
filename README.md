@@ -40,3 +40,7 @@ V2: home-screen widgets, email + password sign-in, possibly back filling past da
 - testing.md - Draft test plan + harness
 
 Rules: the product spec refers to visual things by name, never by value, values live in style.md. 
+
+## License
+
+Licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).

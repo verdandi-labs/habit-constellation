@@ -179,11 +179,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return box.localToGlobal(Offset.zero);
   }
 
-  void _showFirstLogTooltips(String habitId) async {
+  Future<void> _showFirstLogTooltips(String habitId) async {
+    if (_firstLogTooltipsStarted) return;
+    _firstLogTooltipsStarted = true;
     try {
-      debugPrint('_showFirstLogTooltips entered');
-      if (_firstLogTooltipsStarted) return;
-      _firstLogTooltipsStarted = true;
+      debugPrint('_showFirstLogTooltips started');
 
       final user = await ref.read(repositoryProvider).getCurrentUser();
       debugPrint('tooltip_log_seen from /me: ${user.tooltipLogSeen}');
@@ -309,6 +309,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final habitsAsync = ref.watch(habitsProvider);
+    final anchor = _tooltipPosition;
+    const tooltipWidth = 220.0;
+    const tooltipMargin = 12.0;
+    double tooltipLeft = tooltipMargin;
+    double tooltipTop = tooltipMargin;
+    if (anchor != null) {
+      final screen = MediaQuery.of(context).size;
+      tooltipLeft = anchor.dx - tooltipWidth - 16;
+      final maxLeft = screen.width - tooltipWidth - tooltipMargin;
+      tooltipLeft = maxLeft > tooltipMargin
+          ? tooltipLeft.clamp(tooltipMargin, maxLeft)
+          : tooltipMargin;
+      tooltipTop = (anchor.dy - 4).clamp(
+        tooltipMargin,
+        screen.height - 100 > tooltipMargin ? screen.height - 100 : tooltipMargin,
+      );
+    }
 
     return Scaffold(
       body: Container(
@@ -387,8 +404,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               if (_showTooltip && _tooltipPosition != null)
                 Positioned(
-                  left: _tooltipPosition!.dx,
-                  top: _tooltipPosition!.dy,
+                  left: tooltipLeft,
+                  top: tooltipTop,
                   child: _TooltipBubble(text: _tooltipText ?? ''),
                 ),
             ],
@@ -479,14 +496,39 @@ class _TooltipBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xEEE080B4).withValues(alpha: 0.95),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text, style: kInter(size: 12.5, color: const Color(0xFFD0D8E8))),
+    const fill = Color(0xEEE080B4);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 220,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: fill.withValues(alpha: 0.95),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(text, style: kInter(size: 12.5, color: const Color(0xFFD0D8E8))),
+        ),
+        Positioned(
+          right: -5,
+          top: 13,
+          child: Transform.rotate(
+            angle: 0.7853981634,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: fill.withValues(alpha: 0.95),
+                border: Border(
+                  top: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+                  right: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

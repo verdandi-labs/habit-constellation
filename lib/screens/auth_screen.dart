@@ -30,8 +30,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   String? _error;
 
   Future<void> _signIn() async {
+    await _googleSignIn.signOut();
     setState(() { _loading = true; _error = null; });
     try {
+      debugPrint('Calling googleSignIn.signIn()');
       final account = await _googleSignIn.signIn();
       if (account == null) {
         if (mounted) setState(() { _loading = false; });
@@ -44,6 +46,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         setState(() { _error = 'Sign in failed. Please try again.'; _loading = false; });
         return;
       }
+      debugPrint('idToken first 200 chars: ${idToken.substring(0, 200)}');
       await ref.read(repositoryProvider).signInWithGoogle(idToken);
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -52,6 +55,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         (route) => false,
       );
     } catch (e, stackTrace) {
+      debugPrint('Sign-in failed type: ${e.runtimeType}');
+      debugPrint('Sign-in failed detail: ${e is ApiException ? e.message : e}');
       debugPrint('Sign-in failed: $e\n$stackTrace');
       if (!mounted) return;
       setState(() { _error = _errorMessage(e); _loading = false; });

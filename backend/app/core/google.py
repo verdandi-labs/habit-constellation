@@ -5,7 +5,7 @@ In tests, this module is monkeypatched to return a controlled result.
 """
 
 import httpx
-from jwt import decode, InvalidTokenError
+from jwt import decode
 
 
 GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
@@ -33,7 +33,8 @@ async def verify_google_token(id_token: str, client_id: str) -> dict:
             options={"verify_exp": True},
         )
         return payload
-    except (InvalidTokenError, Exception) as e:
+    except Exception as e:
+        print(f"Google token verification error: {type(e).__name__}: {e}")
         raise InvalidGoogleToken(str(e))
 
 

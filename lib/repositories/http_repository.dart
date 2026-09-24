@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:habit_constellation/models/habit.dart';
 import 'package:habit_constellation/models/log.dart';
@@ -107,6 +108,8 @@ class HttpRepository implements HabitRepository {
 
   void _checkError(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
+    debugPrint('API error status: ${response.statusCode}');
+    debugPrint('API error body: ${response.body}');
     final body = jsonDecode(response.body);
     final detail = body['detail'];
     if (detail is Map) {

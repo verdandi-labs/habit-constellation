@@ -19,10 +19,10 @@ async def auth_google(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)
     settings = get_settings()
     try:
         payload = await verify_google_token(req.id_token, settings.GOOGLE_CLIENT_ID)
-    except InvalidGoogleToken:
+    except InvalidGoogleToken as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "invalid_google_token", "message": "Google token verification failed"}
+            detail={"code": "invalid_google_token", "message": str(e)}
         )
 
     google_sub = payload["sub"]

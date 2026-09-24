@@ -1,41 +1,28 @@
 """Thin, fakeable Google ID token verification.
 
-In production, verifies against Google's JWKS.
+In production, verifies against Google's certificates via google-auth.
 In tests, this module is monkeypatched to return a controlled result.
 """
 
-import httpx
-from jwt import decode
+from google.auth.transport import requests
+from google.oauth2 import id_token
 
 
-GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
-
-
-async def verify_google_token(id_token: str, client_id: str) -> dict:
+async def verify_google_token(token: str, client_id: str) -> dict:
     """Verify a Google ID token and return its payload.
 
     Raises InvalidGoogleToken if verification fails.
     """
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(GOOGLE_JWKS_URL)
-            resp.raise_for_status()
-            jwks = resp.json()
-
-        from jwt import PyJWKSet
-        signing_keys = PyJWKSet.from_dict(jwks).keys
-
-        payload = decode(
-            id_token,
-            key=signing_keys,
-            algorithms=["RS256"],
-            audience=client_id,
-            options={"verify_exp": True},
+        id_info = id_token.verify_oauth2_token(
+            token,
+            requests.Request(),
+            client_id,
         )
-        return payload
+        return id_info
     except Exception as e:
         print(f"Google token verification error: {type(e).__name__}: {e}")
-        raise InvalidGoogleToken(str(e))
+        raise InvalidGoogleToken(f"Token verification failed: {e}")
 
 
 class InvalidGoogleToken(Exception):

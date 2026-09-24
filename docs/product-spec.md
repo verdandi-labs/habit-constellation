@@ -94,7 +94,6 @@ Both shown only once, ever. Tracked as tooltip_log_seen and tooltip_comment_seen
 ### 3.3 Add-habit sheet
 
 - Textarea at the top with a save button → creates the habit with the typed name.
-- Below: habit suggestions in italic, lighter color (e.g. Meditate · Stretch · Yoga · Walk outside). Tapping a suggestion creates the habit immediately — no confirmation step.
 - After creating: sheet stays open with a brief "added" state so several habits can be added in one visit.
 - Name rules: required, trimmed, 1–60 characters.
 

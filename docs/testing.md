@@ -38,7 +38,7 @@
 
 | Area | Cases |
 |---|---|
-| Home | initial render · tap ◯ → done state (silver glow) · tap again → undo · undo with comment → confirmation, cancel keeps it · comment exists → ✉ glow state · empty state + footer visible · add via suggestion (instant) · add via textarea · rename · delete flow · bottom-bar navigation |
+| Home | initial render · tap ◯ → done state (silver glow) · tap again → undo · undo with comment → confirmation, cancel keeps it · comment exists → ✉ glow state · empty state + footer visible · add via textarea · rename · delete flow · bottom-bar navigation |
 | ✉ states (ADR-19) | ✉ disabled on unsynced log · ✉ enabled once sync confirms · ✉ disabled while offline |
 | Tooltips | first log → twinkle → tooltip 1 (3s) → tooltip 2 (3s) · flags already true → no tooltips · flags set via one `PATCH` after first log (ADR-14) |
 | Midnight | clock 23:58 → tick to 00:01 → refetch, circles empty, new logs use new date · resume-after-day-change |

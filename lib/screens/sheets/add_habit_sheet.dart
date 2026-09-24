@@ -14,10 +14,6 @@ class _AddHabitSheetState extends State<AddHabitSheet> {
   final _controller = TextEditingController();
   bool _added = false;
 
-  static const _suggestions = [
-    'Meditate', 'Stretch', 'Yoga', 'Walk outside', 'Journal', 'Cold shower',
-  ];
-
   void _handleAdd(String name) {
     final trimmed = name.trim();
     if (trimmed.isEmpty || trimmed.length > 60) return;
@@ -99,27 +95,6 @@ class _AddHabitSheetState extends State<AddHabitSheet> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _suggestions.map((s) => GestureDetector(
-                    onTap: () => _handleAdd(s),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(s, style: TextStyle(
-                        fontFamily: 'Raleway',
-                        fontSize: 13,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.white.withOpacity(0.35),
-                      )),
-                    ),
-                  )).toList(),
                 ),
               ],
             ),

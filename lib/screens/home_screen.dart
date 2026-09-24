@@ -32,6 +32,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final Map<String, GlobalKey> _logButtonKeys = {};
   final Map<String, GlobalKey> _commentButtonKeys = {};
   bool _firstLogTooltipsStarted = false;
+  Timer? _tooltipTimer;
+  Timer? _starFlashTimer;
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
   final _offlineQueue = OfflineQueue();
   Set<String> _pendingHabitIds = {};
@@ -45,6 +47,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _tooltipTimer?.cancel();
+    _starFlashTimer?.cancel();
     super.dispose();
   }
 
@@ -165,9 +169,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showStarFlashAnimation() {
     setState(() => _showStarFlash = true);
-    Future.delayed(const Duration(milliseconds: 750), () {
+    _starFlashTimer?.cancel();
+    _starFlashTimer = Timer(const Duration(milliseconds: 750), () {
       if (mounted) setState(() => _showStarFlash = false);
     });
+  }
+
+  Future<void> _waitTooltip(Duration duration) {
+    final completer = Completer<void>();
+    _tooltipTimer?.cancel();
+    _tooltipTimer = Timer(duration, () {
+      if (!completer.isCompleted) completer.complete();
+    });
+    return completer.future;
   }
 
   GlobalKey _keyFor(Map<String, GlobalKey> map, String habitId) =>
@@ -210,14 +224,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _showTooltip = true;
         _tooltipText = 'Tap again to undo';
       });
-      await Future.delayed(const Duration(seconds: 3));
+      await _waitTooltip(const Duration(seconds: 3));
       if (!mounted) return;
 
       setState(() {
         _tooltipPosition = secondPos;
         _tooltipText = 'Write how it felt, if you feel like it';
       });
-      await Future.delayed(const Duration(seconds: 3));
+      await _waitTooltip(const Duration(seconds: 3));
       if (!mounted) return;
 
       setState(() => _showTooltip = false);

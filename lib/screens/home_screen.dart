@@ -161,7 +161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showStarFlashAnimation() {
     setState(() => _showStarFlash = true);
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    Future.delayed(const Duration(milliseconds: 750), () {
       if (mounted) setState(() => _showStarFlash = false);
     });
   }
@@ -333,12 +333,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               if (_showStarFlash)
-                Positioned.fill(
-                  child: Center(
-                    child: AnimatedOpacity(
-                      opacity: _showStarFlash ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 300),
-                      child: Icon(Icons.auto_awesome, size: 48, color: Colors.white.withValues(alpha: 0.8)),
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: Stack(
+                      children: [
+                        Align(alignment: Alignment(-0.5, -0.55), child: _StarFlash()),
+                        Align(alignment: Alignment(0.45, -0.4), child: _StarFlash()),
+                        Align(alignment: Alignment(-0.65, 0.05), child: _StarFlash()),
+                        Align(alignment: Alignment(0.6, 0.2), child: _StarFlash()),
+                        Align(alignment: Alignment(-0.35, 0.55), child: _StarFlash()),
+                        Align(alignment: Alignment(0.3, 0.6), child: _StarFlash()),
+                        Align(alignment: Alignment(0.05, -0.15), child: _StarFlash()),
+                        Align(alignment: Alignment(-0.1, 0.35), child: _StarFlash()),
+                      ],
                     ),
                   ),
                 ),
@@ -354,6 +361,80 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+}
+
+class _StarFlash extends StatefulWidget {
+  const _StarFlash();
+
+  @override
+  State<_StarFlash> createState() => _StarFlashState();
+}
+
+class _StarFlashState extends State<_StarFlash> with SingleTickerProviderStateMixin {
+  static const _fadeInMs = 100;
+  static const _fadeOutMs = 600;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: _fadeInMs + _fadeOutMs),
+  )..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double get _opacity {
+    final t = _controller.value;
+    final fadeInEnd = _fadeInMs / (_fadeInMs + _fadeOutMs);
+    if (t < fadeInEnd) {
+      return Curves.easeOut.transform(t / fadeInEnd);
+    }
+    return 1 - Curves.easeIn.transform((t - fadeInEnd) / (1 - fadeInEnd));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => CustomPaint(
+        size: const Size(15, 15),
+        painter: _StarFlashPainter(_opacity),
+      ),
+    );
+  }
+}
+
+class _StarFlashPainter extends CustomPainter {
+  final double opacity;
+  _StarFlashPainter(this.opacity);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (opacity <= 0) return;
+    final center = size.center(Offset.zero);
+    final radius = size.width / 2;
+
+    final glow = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.9 * opacity),
+          kSilver.withValues(alpha: 0.35 * opacity),
+          Colors.white.withValues(alpha: 0),
+        ],
+        stops: const [0.0, 0.35, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius, glow);
+
+    final core = Paint()
+      ..color = Colors.white.withValues(alpha: opacity);
+    canvas.drawCircle(center, 1.5, core);
+  }
+
+  @override
+  bool shouldRepaint(_StarFlashPainter oldDelegate) =>
+      oldDelegate.opacity != opacity;
 }
 
 class _TooltipBubble extends StatelessWidget {

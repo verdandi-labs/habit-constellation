@@ -11,9 +11,10 @@ const List<Color> kStarColors = [
 
 BoxDecoration get kBg => const BoxDecoration(
   gradient: RadialGradient(
-    center: Alignment(-0.8, 0.8),
-    radius: 1.4,
-    colors: [Color(0xFF14083A), Color(0xFF07091C)],
+    center: Alignment.center,
+    radius: 2.4,
+    colors: [Color(0xFF030D3F), Color(0xFF000000)],
+    stops: [0.12, 1.0],
   ),
 );
 

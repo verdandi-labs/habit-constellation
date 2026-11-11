@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
       title: 'Habit Constellation',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF07091C),
+        scaffoldBackgroundColor: const Color(0xFF000000),
       ),
       scaffoldMessengerKey: scaffoldMessengerKey,
       home: const AuthGate(),
